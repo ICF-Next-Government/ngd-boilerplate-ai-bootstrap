@@ -27,6 +27,7 @@ INSTALLED_GH=false
 # ---------------------------------------------------------------------------
 
 info()  { printf '\033[1;34m==>\033[0m %s\n' "$1"; }
+warn()  { printf '\033[1;33mWarning:\033[0m %s\n' "$1"; }
 error() { printf '\033[1;31mError:\033[0m %s\n' "$1" >&2; }
 bold()  { printf '\033[1m%s\033[0m\n' "$1"; }
 
@@ -87,6 +88,9 @@ main() {
 
     # 2. Ensure GitHub CLI
     if ! has gh; then
+        if [ "$(uname -s)" = "Linux" ]; then
+            warn "Installing the GitHub CLI requires administrator access. You may be prompted for your password."
+        fi
         info "Installing GitHub CLI..."
         case "$(uname -s)" in
             Darwin)
@@ -134,9 +138,26 @@ main() {
         exit 1
     fi
 
+    # Validate the downloaded script. The GitHub Contents API returns null
+    # content for files over 1MB, which base64 decodes to garbage.
+    if ! head -1 "$tmp" | grep -q '^#!/'; then
+        rm -f "$tmp"
+        error "Downloaded installer failed validation (missing shebang)."
+        exit 1
+    fi
+    if [ "$(wc -c < "$tmp")" -lt 100 ]; then
+        rm -f "$tmp"
+        error "Downloaded installer is too small; likely truncated or empty."
+        exit 1
+    fi
+
     echo ""
     info "Handing off to the main installer..."
     echo ""
+
+    # Run as a subprocess (not source/exec). Each script tracks what it
+    # installed and cleans up only those items. Subprocess isolation keeps
+    # the two cleanup scopes independent.
     bash "$tmp"
     rm -f "$tmp"
 

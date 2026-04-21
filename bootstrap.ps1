@@ -87,6 +87,9 @@ function Main {
         if ($LASTEXITCODE -ne 0) {
             throw "API call failed"
         }
+        if (-not $content -or $content -eq "null") {
+            throw "Empty or null content returned"
+        }
         [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($content)) |
             Set-Content -Path $tmp.FullName -Encoding UTF8
     } catch {
@@ -95,10 +98,22 @@ function Main {
         exit 1
     }
 
+    # Validate the downloaded script. The GitHub Contents API returns null
+    # content for files over 1MB, which would produce garbage or an empty file.
+    $fileSize = (Get-Item $tmp.FullName).Length
+    if ($fileSize -lt 100) {
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        Write-Err "Downloaded installer is too small ($fileSize bytes); likely truncated or empty."
+        exit 1
+    }
+
     Write-Host ""
     Write-Info "Handing off to the main installer..."
     Write-Host ""
 
+    # Run as a subprocess (not dot-source). Each script tracks what it
+    # installed and cleans up only those items. Subprocess isolation keeps
+    # the two cleanup scopes independent.
     try {
         & powershell -ExecutionPolicy Bypass -File $tmp.FullName
     } finally {
