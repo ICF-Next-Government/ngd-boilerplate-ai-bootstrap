@@ -158,8 +158,20 @@ main() {
     # Run as a subprocess (not source/exec). Each script tracks what it
     # installed and cleans up only those items. Subprocess isolation keeps
     # the two cleanup scopes independent.
-    bash "$tmp"
+    local rc=0
+    bash "$tmp" || rc=$?
     rm -f "$tmp"
+
+    if [ "$rc" -ne 0 ]; then
+        echo ""
+        error "The installer exited with an error (code $rc)."
+        if [ "$INSTALLED_BREW" = true ] || [ "$INSTALLED_GH" = true ]; then
+            warn "The following were installed temporarily and left in place for debugging:"
+            [ "$INSTALLED_GH" = true ] && echo "  - GitHub CLI (gh): remove with 'brew uninstall gh'"
+            [ "$INSTALLED_BREW" = true ] && echo "  - Homebrew: remove with '/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)\"'"
+        fi
+        exit "$rc"
+    fi
 
     # 5. Clean up what we installed (success path only)
     cleanup_deps

@@ -106,6 +106,12 @@ function Main {
         Write-Err "Downloaded installer is too small ($fileSize bytes); likely truncated or empty."
         exit 1
     }
+    $head = Get-Content $tmp.FullName -TotalCount 5 -Raw
+    if ($head -notmatch 'ErrorActionPreference|param\(') {
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        Write-Err "Downloaded installer failed validation (not a PowerShell script)."
+        exit 1
+    }
 
     Write-Host ""
     Write-Info "Handing off to the main installer..."
@@ -114,10 +120,25 @@ function Main {
     # Run as a subprocess (not dot-source). Each script tracks what it
     # installed and cleans up only those items. Subprocess isolation keeps
     # the two cleanup scopes independent.
+    $installFailed = $false
     try {
         & powershell -ExecutionPolicy Bypass -File $tmp.FullName
+        if ($LASTEXITCODE -ne 0) { $installFailed = $true }
+    } catch {
+        $installFailed = $true
     } finally {
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($installFailed) {
+        Write-Host ""
+        Write-Err "The installer exited with an error."
+        if ($script:InstalledGh) {
+            Write-Host ""
+            Write-Host "  The following was installed temporarily and left in place for debugging:"
+            Write-Host "  - GitHub CLI (gh): remove with 'winget uninstall GitHub.cli'"
+        }
+        exit 1
     }
 
     # 5. Clean up what we installed (success path only)
