@@ -78,7 +78,7 @@ cleanup_deps() {
     fi
 
     if [ "$INSTALLED_BREW" = true ]; then
-        NONINTERACTIVE=1 /bin/bash -c \
+        /bin/bash -c \
             "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" 2>/dev/null || true
     fi
 }
@@ -117,7 +117,7 @@ main() {
                     info "Installing Homebrew..."
                     # Unpinned HEAD URL follows Homebrew's own install guidance.
                     # Accepted risk: Homebrew is temporary and removed after install.
-                    NONINTERACTIVE=1 /bin/bash -c \
+                    /bin/bash -c \
                         "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
                     if [ -f /opt/homebrew/bin/brew ]; then
                         eval "$(/opt/homebrew/bin/brew shellenv)"
