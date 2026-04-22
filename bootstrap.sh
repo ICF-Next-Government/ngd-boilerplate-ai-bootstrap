@@ -78,7 +78,7 @@ cleanup_deps() {
     fi
 
     if [ "$INSTALLED_BREW" = true ]; then
-        /bin/bash -c \
+        NONINTERACTIVE=1 /bin/bash -c \
             "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" 2>/dev/null || true
     fi
 }
