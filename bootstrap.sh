@@ -115,6 +115,8 @@ main() {
             Darwin)
                 if ! has brew; then
                     info "Installing Homebrew..."
+                    # Unpinned HEAD URL follows Homebrew's own install guidance.
+                    # Accepted risk: Homebrew is temporary and removed after install.
                     NONINTERACTIVE=1 /bin/bash -c \
                         "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
                     if [ -f /opt/homebrew/bin/brew ]; then
@@ -165,7 +167,9 @@ main() {
             Darwin) brew install --quiet gh ;;
             Linux)
                 if has apt-get; then
-                    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+                    # Follows GitHub's official install docs for gh on Linux.
+                # Accepted risk: keyring is temporary and removed after install.
+                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
                         | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
                     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
                         | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
@@ -210,7 +214,7 @@ main() {
     # 6. Download and run the real installer
     info "Downloading installer..."
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp) && chmod 600 "$tmp"
     if ! gh api "repos/$REPO/contents/bin/install.sh" --jq '.content' | base64 -d > "$tmp"; then
         rm -f "$tmp"
         error "Failed to download the installer. Do you have access to the $REPO repository?"

@@ -122,6 +122,7 @@ function Main {
     # the two cleanup scopes independent.
     $installFailed = $false
     try {
+        # Bypass is scoped to this subprocess only; does not change system policy.
         & powershell -ExecutionPolicy Bypass -File $tmp.FullName
         if ($LASTEXITCODE -ne 0) { $installFailed = $true }
     } catch {
