@@ -4,37 +4,46 @@
 #   irm https://raw.githubusercontent.com/ICF-Next-Government/ngd-boilerplate-ai-bootstrap/main/bootstrap.ps1 | iex
 #
 # What it does:
-#   1. Installs GitHub CLI via winget (if missing)
+#   1. Installs dependencies (git, gh, uv) via winget if missing
 #   2. Authenticates with GitHub (browser-based login)
 #   3. Downloads and runs the real installer from the private repo
-#   4. Cleans up anything it installed
-#
-# The real installer handles everything else (git, uv, Python,
-# practice selection, tool config). This script only bridges
-# the authentication gap.
+#   4. Cleans up uv (temporary); git, gh, and auth persist for ongoing use
 
 $ErrorActionPreference = "Stop"
 
 $Repo = "ICF-Next-Government/ngd-boilerplate-ai"
 
-# Track what we install so we can clean up
-$script:InstalledGh = $false
+# Track what we install so we can clean up selectively
+$script:InstalledUv = $false
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-function Write-Info($msg)  { Write-Host "==> " -ForegroundColor Blue -NoNewline; Write-Host $msg }
-function Write-Err($msg)   { Write-Host "Error: " -ForegroundColor Red -NoNewline; Write-Host $msg }
+function Write-Info($msg)  { Write-Host "🔹 $msg" }
+function Write-Err($msg)   { Write-Host "❌ $msg" }
 function Write-Bold($msg)  { Write-Host $msg -ForegroundColor White }
 
 function Test-Command($name) { $null -ne (Get-Command $name -ErrorAction SilentlyContinue) }
 
 function Cleanup-Deps {
-    if ($script:InstalledGh) {
-        Write-Info "Removing GitHub CLI (installed temporarily)..."
-        winget uninstall --id GitHub.cli --silent 2>$null
+    if (-not $script:InstalledUv) { return }
+
+    Write-Info "Cleaning up temporary dependencies..."
+    $uvPaths = @(
+        (Join-Path $env:USERPROFILE ".local\bin\uv.exe"),
+        (Join-Path $env:USERPROFILE ".local\bin\uvx.exe"),
+        (Join-Path $env:USERPROFILE ".cargo\bin\uv.exe"),
+        (Join-Path $env:USERPROFILE ".cargo\bin\uvx.exe")
+    )
+    foreach ($p in $uvPaths) {
+        if (Test-Path $p) { Remove-Item $p -Force }
     }
+    $uvData = Join-Path $env:LOCALAPPDATA "uv"
+    if (Test-Path $uvData) { Remove-Item -Recurse -Force $uvData }
+
+    # git, gh, and gh auth are kept intentionally.
+    # The nightly usage analytics export requires git + gh credentials.
 }
 
 # ---------------------------------------------------------------------------
@@ -53,22 +62,33 @@ function Main {
         exit 1
     }
 
-    # 2. Ensure GitHub CLI
+    # 2. Ensure git
+    if (-not (Test-Command git)) {
+        Write-Info "Installing git..."
+        winget install --id Git.Git -e --source winget `
+            --accept-package-agreements --accept-source-agreements --silent
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+                     [System.Environment]::GetEnvironmentVariable("Path", "User")
+        if (-not (Test-Command git)) {
+            Write-Err "git installation failed. Please restart PowerShell and try again."
+            exit 1
+        }
+    }
+
+    # 3. Ensure GitHub CLI
     if (-not (Test-Command gh)) {
         Write-Info "Installing GitHub CLI..."
         winget install --id GitHub.cli -e --source winget `
             --accept-package-agreements --accept-source-agreements --silent
-        # Refresh PATH so we can find gh
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
                      [System.Environment]::GetEnvironmentVariable("Path", "User")
         if (-not (Test-Command gh)) {
             Write-Err "GitHub CLI installation failed. Please restart PowerShell and try again."
             exit 1
         }
-        $script:InstalledGh = $true
     }
 
-    # 3. Authenticate
+    # 4. Authenticate
     $authStatus = gh auth status 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
@@ -78,8 +98,21 @@ function Main {
     } else {
         Write-Info "GitHub authentication found."
     }
+    gh auth setup-git
 
-    # 4. Download and run the real installer
+    # 5. Ensure uv
+    if (-not (Test-Command uv)) {
+        Write-Info "Installing uv..."
+        irm https://astral.sh/uv/install.ps1 | iex
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "User") + ";" + $env:Path
+        if (-not (Test-Command uv)) {
+            Write-Err "uv installation failed. Please restart PowerShell and try again."
+            exit 1
+        }
+        $script:InstalledUv = $true
+    }
+
+    # 6. Download and run the real installer
     Write-Info "Downloading installer..."
     $tmp = New-TemporaryFile
     try {
@@ -117,12 +150,8 @@ function Main {
     Write-Info "Handing off to the main installer..."
     Write-Host ""
 
-    # Run as a subprocess (not dot-source). Each script tracks what it
-    # installed and cleans up only those items. Subprocess isolation keeps
-    # the two cleanup scopes independent.
     $installFailed = $false
     try {
-        # Bypass is scoped to this subprocess only; does not change system policy.
         & powershell -ExecutionPolicy Bypass -File $tmp.FullName
         if ($LASTEXITCODE -ne 0) { $installFailed = $true }
     } catch {
@@ -134,15 +163,10 @@ function Main {
     if ($installFailed) {
         Write-Host ""
         Write-Err "The installer exited with an error."
-        if ($script:InstalledGh) {
-            Write-Host ""
-            Write-Host "  The following was installed temporarily and left in place for debugging:"
-            Write-Host "  - GitHub CLI (gh): remove with 'winget uninstall GitHub.cli'"
-        }
         exit 1
     }
 
-    # 5. Clean up what we installed (success path only)
+    # 7. Clean up temporary dependencies (success path only)
     Cleanup-Deps
 }
 
