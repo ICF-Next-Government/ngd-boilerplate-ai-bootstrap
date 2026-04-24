@@ -27,16 +27,15 @@ INSTALLED_UV=false
 # Helpers
 # ---------------------------------------------------------------------------
 
-info()  { printf '\033[1;34m==>\033[0m %s\n' "$1"; }
-warn()  { printf '\033[1;33mWarning:\033[0m %s\n' "$1"; }
-error() { printf '\033[1;31mError:\033[0m %s\n' "$1" >&2; }
+info()  { printf '🔹 %s\n' "$1"; }
+warn()  { printf '⚠️  %s\n' "$1"; }
+error() { printf '❌ %s\n' "$1" >&2; }
 bold()  { printf '\033[1m%s\033[0m\n' "$1"; }
 
 has() { command -v "$1" >/dev/null 2>&1; }
 
 cleanup_deps() {
-    if [ "$INSTALLED_BREW" = false ] && [ "$INSTALLED_GIT" = false ] \
-        && [ "$INSTALLED_GH" = false ] && [ "$INSTALLED_UV" = false ]; then
+    if [ "$INSTALLED_UV" = false ]; then
         return 0
     fi
 
@@ -49,38 +48,8 @@ cleanup_deps() {
         rm -rf "$HOME/.local/share/uv"
     fi
 
-    if [ "$INSTALLED_GH" = true ]; then
-        case "$(uname -s)" in
-            Darwin) brew uninstall --quiet gh 2>/dev/null || true ;;
-            Linux)
-                if has apt-get; then
-                    sudo apt-get remove -y -qq gh 2>/dev/null || true
-                    sudo rm -f /etc/apt/sources.list.d/github-cli.list
-                    sudo rm -f /usr/share/keyrings/githubcli-archive-keyring.gpg
-                elif has dnf; then
-                    sudo dnf remove -y -q gh 2>/dev/null || true
-                fi
-                ;;
-        esac
-    fi
-
-    if [ "$INSTALLED_GIT" = true ]; then
-        case "$(uname -s)" in
-            Darwin) brew uninstall --quiet git 2>/dev/null || true ;;
-            Linux)
-                if has apt-get; then
-                    sudo apt-get remove -y -qq git 2>/dev/null || true
-                elif has dnf; then
-                    sudo dnf remove -y -q git 2>/dev/null || true
-                fi
-                ;;
-        esac
-    fi
-
-    if [ "$INSTALLED_BREW" = true ]; then
-        NONINTERACTIVE=1 /bin/bash -c \
-            "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" 2>/dev/null || true
-    fi
+    # git, gh, gh auth, and the package manager are kept intentionally.
+    # The nightly usage analytics export requires git + gh credentials.
 }
 
 # ---------------------------------------------------------------------------
