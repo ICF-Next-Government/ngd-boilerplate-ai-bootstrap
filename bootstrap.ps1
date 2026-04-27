@@ -89,7 +89,7 @@ function Main {
     }
 
     # 4. Authenticate
-    $authStatus = gh auth status 2>&1
+    gh auth status 2>$null
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
         Write-Info "You need to log in to GitHub. A browser window will open."
