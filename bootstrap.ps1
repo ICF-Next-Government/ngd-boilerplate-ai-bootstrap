@@ -114,7 +114,7 @@ function Main {
 
     # 6. Download and run the real installer
     Write-Info "Downloading installer..."
-    $tmp = New-TemporaryFile | Rename-Item -NewName { $_.Name -replace '\.tmp$','.ps1' } -PassThru
+    $tmp = Join-Path $env:TEMP "ngd-bootstrap-$(Get-Random).ps1"
     try {
         $content = gh api "repos/$Repo/contents/bin/install.ps1" --jq '.content'
         if ($LASTEXITCODE -ne 0) {
@@ -124,7 +124,7 @@ function Main {
             throw "Empty or null content returned"
         }
         [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($content)) |
-            Set-Content -Path $tmp.FullName -Encoding UTF8
+            Set-Content -Path $tmp -Encoding UTF8
     } catch {
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
         Write-Err "Failed to download the installer. Do you have access to the $Repo repository?"
@@ -133,13 +133,13 @@ function Main {
 
     # Validate the downloaded script. The GitHub Contents API returns null
     # content for files over 1MB, which would produce garbage or an empty file.
-    $fileSize = (Get-Item $tmp.FullName).Length
+    $fileSize = (Get-Item $tmp).Length
     if ($fileSize -lt 100) {
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
         Write-Err "Downloaded installer is too small ($fileSize bytes); likely truncated or empty."
         exit 1
     }
-    $head = (Get-Content $tmp.FullName -TotalCount 30) -join "`n"
+    $head = (Get-Content $tmp -TotalCount 30) -join "`n"
     if ($head -notmatch 'ErrorActionPreference|param\(') {
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
         Write-Err "Downloaded installer failed validation (not a PowerShell script)."
@@ -152,7 +152,7 @@ function Main {
 
     $installFailed = $false
     try {
-        & powershell -ExecutionPolicy Bypass -File $tmp.FullName
+        & powershell -ExecutionPolicy Bypass -File $tmp
         if ($LASTEXITCODE -ne 0) { $installFailed = $true }
     } catch {
         $installFailed = $true
