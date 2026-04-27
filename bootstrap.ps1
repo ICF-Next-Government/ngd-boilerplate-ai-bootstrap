@@ -114,7 +114,7 @@ function Main {
 
     # 6. Download and run the real installer
     Write-Info "Downloading installer..."
-    $tmp = New-TemporaryFile
+    $tmp = New-TemporaryFile | Rename-Item -NewName { $_.Name -replace '\.tmp$','.ps1' } -PassThru
     try {
         $content = gh api "repos/$Repo/contents/bin/install.ps1" --jq '.content'
         if ($LASTEXITCODE -ne 0) {
