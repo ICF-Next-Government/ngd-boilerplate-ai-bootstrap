@@ -139,7 +139,7 @@ function Main {
         Write-Err "Downloaded installer is too small ($fileSize bytes); likely truncated or empty."
         exit 1
     }
-    $head = (Get-Content $tmp.FullName -TotalCount 5) -join "`n"
+    $head = (Get-Content $tmp.FullName -TotalCount 30) -join "`n"
     if ($head -notmatch 'ErrorActionPreference|param\(') {
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
         Write-Err "Downloaded installer failed validation (not a PowerShell script)."
