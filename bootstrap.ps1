@@ -30,17 +30,7 @@ function Cleanup-Deps {
     if (-not $script:InstalledUv) { return }
 
     Write-Info "Cleaning up temporary dependencies..."
-    $uvPaths = @(
-        (Join-Path $env:USERPROFILE ".local\bin\uv.exe"),
-        (Join-Path $env:USERPROFILE ".local\bin\uvx.exe"),
-        (Join-Path $env:USERPROFILE ".cargo\bin\uv.exe"),
-        (Join-Path $env:USERPROFILE ".cargo\bin\uvx.exe")
-    )
-    foreach ($p in $uvPaths) {
-        if (Test-Path $p) { Remove-Item $p -Force }
-    }
-    $uvData = Join-Path $env:LOCALAPPDATA "uv"
-    if (Test-Path $uvData) { Remove-Item -Recurse -Force $uvData }
+    winget uninstall --id astral-sh.uv --silent 2>$null
 
     # git, gh, and gh auth are kept intentionally.
     # The nightly usage analytics export requires git + gh credentials.
@@ -100,11 +90,14 @@ function Main {
     }
     gh auth setup-git
 
-    # 5. Ensure uv
+    # 5. Ensure uv (winget preferred — the astral.sh script drops binaries
+    #    into ~/.local/bin which corporate endpoint policies often block)
     if (-not (Test-Command uv)) {
         Write-Info "Installing uv..."
-        irm https://astral.sh/uv/install.ps1 | iex
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "User") + ";" + $env:Path
+        winget install --id astral-sh.uv -e --source winget `
+            --accept-package-agreements --accept-source-agreements --silent
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+                     [System.Environment]::GetEnvironmentVariable("Path", "User")
         if (-not (Test-Command uv)) {
             Write-Err "uv installation failed. Please restart PowerShell and try again."
             exit 1
