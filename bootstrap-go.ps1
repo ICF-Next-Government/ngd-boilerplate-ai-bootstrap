@@ -87,8 +87,14 @@ function Main {
     gh auth setup-git
 
     # 5. Clone framework + download install binary
+    #
+    # AppLocker / WDAC workaround: many corporate policies block execution
+    # of unsigned binaries from %TEMP% but allow %LOCALAPPDATA%\Programs\.
+    # If this path turns out to be blocked too, revert $BinDir to $env:TEMP.
     $WorkDir = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ("ngd-go-" + [System.Guid]::NewGuid().ToString())) | Select-Object -ExpandProperty FullName
-    $BinPath = Join-Path $env:TEMP ("install-" + [System.Guid]::NewGuid().ToString() + ".exe")
+    $BinDir  = Join-Path $env:LOCALAPPDATA "Programs\ngd-installer"
+    New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
+    $BinPath = Join-Path $BinDir "install.exe"
 
     try {
         Write-Info "Cloning framework..."
