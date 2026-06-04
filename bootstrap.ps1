@@ -109,7 +109,7 @@ function Main {
     Write-Info "Downloading installer..."
     $tmp = Join-Path $env:TEMP "ngd-bootstrap-$(Get-Random).ps1"
     try {
-        $content = gh api "repos/$Repo/contents/bin/install.ps1" --jq '.content'
+        $content = gh api "repos/$Repo/contents/installer/install.ps1" --jq '.content'
         if ($LASTEXITCODE -ne 0) {
             throw "API call failed"
         }
