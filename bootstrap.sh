@@ -184,7 +184,7 @@ main() {
     info "Downloading installer..."
     local tmp
     tmp=$(mktemp) && chmod 600 "$tmp"
-    if ! gh api "repos/$REPO/contents/bin/install.sh" --jq '.content' | base64 -d > "$tmp"; then
+    if ! gh api "repos/$REPO/contents/installer/install.sh" --jq '.content' | base64 -d > "$tmp"; then
         rm -f "$tmp"
         error "Failed to download the installer. Do you have access to the $REPO repository?"
         exit 1
